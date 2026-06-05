@@ -1,34 +1,60 @@
-# 每12小时执行一次
-
+# 名称：Start
 name: Start
 
+# 触发条件
 on:
-   push:
-   gollum:
-   schedule:
-       - cron: '30 */12 * * *'
+  # 推送代码到仓库时触发
+  push:
+  # 修改 Wiki 页面时触发
+  gollum:
+  # 定时任务，设置为每12小时的第30分钟触发
+  schedule:
+    - cron: '30 */12 * * *'
 
+# 定义的任务
 jobs:
   TiebaSignIn:
-
+    # 使用的运行环境，这里选择最新的 Ubuntu
     runs-on: ubuntu-latest
 
+    # 任务步骤
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up JDK 1.8
-      uses: actions/setup-java@v1
-      with:
-        java-version: 1.8
-    - name: Cache local Maven repository
-      uses: actions/cache@v2
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
-    - name: Build with Maven
-      env:
-        BDUSS: ${{ secrets.BDUSS }}
-        SCKEY: ${{ secrets.SCKEY }}
-      run: |
-        mvn compile exec:java -Dexec.mainClass="top.srcrs.Run" -Dexec.args="${BDUSS} ${SCKEY}"
+      # 步骤1：检出代码
+      - uses: actions/checkout@v2
+
+      # 步骤2：设置 JDK 1.8 环境
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8  # 指定 Java 版本为 1.8
+
+      # 步骤3：缓存 Maven 的本地依赖
+      - name: Cache local Maven repository
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository  # 指定缓存的目录
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}  # 缓存的唯一标识
+          restore-keys: |
+            ${{ runner.os }}-maven-  # 匹配失败时的备选缓存键
+
+      # 步骤4：使用 Maven 编译和运行程序
+      - name: Build with Maven
+        env:
+          BDUSS: ${{ secrets.BDUSS }}  # 从 GitHub Secrets 中获取 BDUSS 环境变量
+        run: |
+          mvn compile exec:java -Dexec.mainClass="top.srcrs.Run" -Dexec.args="${BDUSS}"            # 传递 BDUSS 参数
+
+      # 步骤5：发送邮件
+      - name: 'Send mail'
+        uses: dawidd6/action-send-mail@master
+        with:
+          server_address: smtp.qq.com       # QQ 邮箱的 SMTP 服务器地址
+          server_port: 465                 # SMTP 服务器端口（465 表示 SSL 加密）
+          username: ${{ secrets.MAIL_USERNAME }}  # 邮箱用户名，从 Secrets 加载
+          password: ${{ secrets.MAIL_PASSWORD }}  # 邮箱密码（授权码），从 Secrets 加载
+          subject: TieBa Report            # 邮件主题
+          body: file://TiebaSignIn.txt     # 邮件正文，来自生成的日志文件
+          to: ${{ secrets.RECIPIENT }}    # 收件人邮箱
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>             # 发件人显示的名称
+          content_type: text/plain         # 邮件正文内容类型（纯文本）
+
